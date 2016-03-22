@@ -29,78 +29,50 @@ void timerCallback() {
 
 void updateCounter(uint8_t btn) {
     // Handles timer and other logic functions
-    // i.e use buttonPressed[button] instead of btnState & BUTTON_MASK_numname
+    // i.e use buttonPressed[buttonID] instead of btnState & BUTTON_MASK_buttonID
     //
     // Each button handler checks and does atleast this accordingly:
     // - If the button was not pressed in previous iter and is now pressed:
-    // -- reset timerCounter[button] and set buttonPressed[button] to True.
+    // -- reset timerCounter[buttonID] and set buttonPressed[buttonID] to True.
+    // -- if button was unpressed for 60 10ms (600 ms), reset timerSpec[buttonID] 
     // - If the button is realesed and was pressed in previous iter:
-    // -- reset timerCounter[button] and set buttonPressed[button] to False.
+    // -- If button was just pressed and was pressed under 60 10ms (600 ms), increase timerSpec[buttonID]
+    // -- reset timerCounter[buttonID] and set buttonPressed[buttonID] to False.
     
     // Fire button timer and counter logic
-    
-    if (btn & BUTTON_MASK_FIRE) {
-        if (buttonPressed[FIRE] == 0) {
-            timerCounter[FIRE] = 0;
+    for (int buttonID=0; buttonID <=2; buttonID++) {
+        int8_t mask = 0xFF; //Should always be set.
+        switch (buttonID){
+            case 0:
+                mask = BUTTON_MASK_FIRE;
+                break;
+            case 1:
+                mask = BUTTON_MASK_RIGHT;
+                break;
+            case 2:
+                mask = BUTTON_MASK_LEFT;
+                break;
         }
-        //This if may be damaging to some functions
-        if (timerCounter[FIRE] > 60) {
-            timerSpec[FIRE] = 0;
+        if (btn & mask) {
+            if (buttonPressed[buttonID] == 0) {
+                timerCounter[buttonID] = 0;
+            }
+            //This if may be damaging to some functions
+            if (timerCounter[buttonID] > 60) {
+                timerSpec[buttonID] = 0;
+            }
+        buttonPressed[buttonID] = 1;
         }
-        buttonPressed[FIRE] = 1;
-
-    }
-    else if (!(btn & BUTTON_MASK_FIRE)) {
-        if (timerCounter[FIRE] < 60 && buttonPressed[FIRE]) {
-        timerSpec[FIRE]++;
-        timerCounter[FIRE] = 0;
-        } else if (buttonPressed[FIRE] || timerCounter[FIRE] > 60) {
-            timerSpec[FIRE] = 0;
+        else if (!(btn & mask)) {
+            if (timerCounter[buttonID] < 60 && buttonPressed[buttonID]) {
+                timerSpec[buttonID]++;
+                timerCounter[buttonID] = 0;
+            }
+            else if (buttonPressed[buttonID] || timerCounter[buttonID] > 60) {
+                timerSpec[buttonID] = 0;
+            }
+        buttonPressed[buttonID] = 0;
         }
-        buttonPressed[FIRE] = 0;
-    }
-    
-    // Right button timer logic
-    if (btn & BUTTON_MASK_RIGHT) {
-        if (buttonPressed[RIGHT] == 0) {
-            timerCounter[RIGHT] = 0;
-        }
-        buttonPressed[RIGHT] = 1;
-        
-        //This if may be damaging to some functions
-        if (timerCounter[RIGHT] > 60) {
-            timerSpec[RIGHT] = 0;
-        }
-    }
-    else if (!(btn & BUTTON_MASK_RIGHT)) {
-        if (timerCounter[RIGHT] < 60 && buttonPressed[RIGHT]) {
-        timerSpec[RIGHT]++;
-        timerCounter[RIGHT] = 0;
-        } else if (buttonPressed[RIGHT] || timerCounter[RIGHT] > 60) {
-            timerSpec[RIGHT] = 0;
-        }
-        buttonPressed[RIGHT] = 0;
-    }
-    
-    // Left button timer logic
-    if (btn & BUTTON_MASK_LEFT) {
-        if (buttonPressed[LEFT] == 0) {
-            timerCounter[LEFT] = 0;
-        }
-        //This if may be damaging to some functions
-        if (timerCounter[LEFT] > 60) {
-            timerSpec[LEFT] = 0;
-        }
-        buttonPressed[LEFT] = 1;
-    }
-    else if (!(btn & BUTTON_MASK_LEFT)) {
-        if (timerCounter[LEFT] < 60 && buttonPressed[LEFT]) {
-            timerSpec[LEFT++;
-        timerCounter[LEFT] = 0;
-        } else if (buttonPressed[LEFT] || timerCounter[LEFT] > 60) {
-            timerSpec[LEFT] = 0;
-        }
-        buttonPressed[LEFT] = 0;
     }
 }
 
@@ -153,18 +125,17 @@ int main(){
     Timer_CreateTimeout(10,1, timerCallback, 0); //Fire
     while(1){
         btnState = Button_GetState();
-        updateCounter(btnState);
         Atomizer_ReadInfo(&atomInfo);
         
+        // Button logic
+        updateCounter(btnState);
+        
         // If has tapped and time elapsed is less than 60 10ms, disable firing
-        if (timerSpec > 1 && timerCounter[0] < 60) { 
+        if (timerSpec[FIRE] > 1 && timerCounter[0] < 60) { 
             shouldFire = 0;
         } else {
             shouldFire = 1;   
         }
-        // Button logic, "don't" use switch, I've heard it's not efficient.
-        //http://embeddedgurus.com/stack-overflow/2010/04/efficient-c-tip-12-be-wary-of-switch-statements/
-        //
         
         //If should fire
         if (!Atomizer_IsOn() && (buttonPressed[0]) &&
