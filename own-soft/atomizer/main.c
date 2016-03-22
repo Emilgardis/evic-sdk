@@ -110,7 +110,20 @@ enum Mode  {
     setupmode,
 } volatile mode; 
 
+
+
 int main(){
+    // TODO:    Change FIRE,RIGHT,LEFT to an enum
+    //          Add Stealth mode.
+    //          Add TCR (Formulas?), with Mode::tcrsetupmode, like in stock.
+    //          Implement the same kind of thing that enables stock firm to not have to plug in USB with right button.
+    //          Add bypass mode. (?)
+    //          Implement a better font.
+    //          Fixed fields for values and strings.
+    //          Add a small snake game. (?) What would the memory impact be? Trigger? left left right right fire 2x.
+    //          Make a implemented button "class". Is this even necessary. (?)
+    //          See how puff and time is implemented and use these mem locations for something cool.
+    //          Add volt mode. (?)
     char buf[100];
     uint16_t volts, displayVolts, newVolts/*, battVolts*/; // Unit mV
 	uint32_t watts, inc; // Unit mW
@@ -138,14 +151,14 @@ int main(){
         updateCounter(btnState);
         
         // If has tapped and time elapsed is less than 60 10ms, disable firing
-        if (timerSpec[FIRE] > 1 && timerCounter[0] < 60) { 
+        if (timerSpec[FIRE] > 1 && timerCounter[FIRE] < 60) { 
             shouldFire = 0;
         } else {
             shouldFire = 1;   
         }
         
         //If should fire
-        if (!Atomizer_IsOn() && (buttonPressed[0]) &&
+        if (!Atomizer_IsOn() && (buttonPressed[FIRE]) &&
             (atomInfo.resistance != 0) && shouldFire &&
             (Atomizer_GetError() == OK)) {
                 // Take power on
@@ -157,8 +170,8 @@ int main(){
 		}
         
         for (int buttonID=1; buttonID <= 2 && buttonID >=1; buttonID++){
-            int mod = 1;
-            if (buttonID == 2){
+            int mod = 1; // Modifier, inc should increase value with RIGHT, decrease with LEFT.
+            if (buttonID == LEFT){
               mod = -1;
             }
         
