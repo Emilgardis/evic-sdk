@@ -13,6 +13,7 @@
 #define FIRE 0
 #define RIGHT 1
 #define LEFT 2
+
 volatile uint32_t timerCounter[3] = {0}; //Space for timers of buttons.
 volatile uint8_t buttonPressed[3] = {0}; //Determines if button was just pressed
 volatile uint8_t timerSpec[3] = {0}; // How many times button has been "tapped"
@@ -104,11 +105,16 @@ uint16_t correctVoltage(uint16_t currentVolt, uint32_t currentWatt, uint16_t res
     return newVolts;
 }
 
+enum Mode  {
+    defaultmode,
+    setupmode,
+} volatile mode; 
+
 int main(){
     char buf[100];
-    uint16_t volts, displayVolts, newVolts/*, battVolts*/;
-	uint32_t watts, inc;
-	uint8_t btnState/*, battPerc, boardTemp*/;
+    uint16_t volts, displayVolts, newVolts/*, battVolts*/; // Unit mV
+	uint32_t watts, inc; // Unit mW
+	uint8_t btnState;/*, battPerc, boardTemp*/;
 	Atomizer_Info_t atomInfo;
     
     Atomizer_ReadInfo(&atomInfo);
@@ -121,6 +127,7 @@ int main(){
     Display_PutPixels(0, 32, Bitmap_evicSdk, Bitmap_evicSdk_width, Bitmap_evicSdk_height);
     Display_Update();
     Timer_DelayMs(500);
+    
     
     Timer_CreateTimeout(10,1, timerCallback, 0); //Fire
     while(1){
@@ -149,39 +156,31 @@ int main(){
 			Atomizer_Control(0);
 		}
         
-        if (buttonPressed[RIGHT]) {
-            if (timerCounter[RIGHT] <= 110) {
-                inc = round(0.479332 * exp(timerCounter[RIGHT]*0.0303612)) * 100;
-            } else {
-                inc = 1800;
+        for (int buttonID=1; buttonID <= 2 && buttonID >=1; buttonID++){
+            int mod = 1;
+            if (buttonID == 2){
+              mod = -1;
             }
-            newVolts = wattsToVolts(watts + inc, atomInfo.resistance);
-            if (watts + inc >= 75000){
-                watts = 75000;
-                newVolts = wattsToVolts(watts, atomInfo.resistance);
-            }else if(newVolts <= ATOMIZER_MAX_VOLTS) {
-                watts += inc;
+        
+            if (buttonPressed[buttonID]) {
+                if (timerCounter[buttonID] <= 110) {
+                    inc = round(0.479332 * exp(timerCounter[buttonID]*0.0303612)) * 100;
+                } else {
+                    inc = 1800;
+                }
+                newVolts = wattsToVolts(watts + mod*inc, atomInfo.resistance);
+                if ((mod == 1) && (watts + inc >= 75000)) {
+                    watts = 75000;
+                    newVolts = wattsToVolts(watts, atomInfo.resistance);
+                } else if ((mod == -1) && watts - inc <= 0) {
+                    watts = 0;
+                    newVolts = wattsToVolts(watts, atomInfo.resistance);  
+                } else if (newVolts <= ATOMIZER_MAX_VOLTS) {
+                    watts += mod*inc;
+                }
+                volts = newVolts;
+                Atomizer_SetOutputVoltage(volts);
             }
-            volts = newVolts;
-            Atomizer_SetOutputVoltage(volts);
-        }
-        if (buttonPressed[LEFT]) {
-            uint32_t deinc;
-            
-            if (timerCounter[LEFT] <= 110) {
-                deinc = round(0.479332 * exp(timerCounter[LEFT]*0.0303612)) * 100;
-            } else {
-                deinc = 1800;
-            }
-            newVolts = wattsToVolts(watts - deinc, atomInfo.resistance);
-            if (watts - deinc <= 0){
-                watts = 0;
-                newVolts = wattsToVolts(watts, atomInfo.resistance);
-            }else if (newVolts <= ATOMIZER_MAX_VOLTS) {
-                watts -= deinc;
-            }
-            volts = newVolts;
-            Atomizer_SetOutputVoltage(volts);
         }
         
         Atomizer_ReadInfo(&atomInfo);
