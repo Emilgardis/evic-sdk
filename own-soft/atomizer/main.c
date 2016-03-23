@@ -72,6 +72,7 @@ void updateCounter(uint8_t btn) {
             else if (buttonPressed[buttonID] || timerCounter[buttonID] > 60) {
                 timerSpec[buttonID] = 0;
             }
+        timerCounter[buttonID] = 0;
         buttonPressed[buttonID] = 0;
         }
     }
@@ -126,7 +127,7 @@ int main(){
     //          Add volt mode. (?)
     char buf[100];
     uint16_t volts, displayVolts, newVolts/*, battVolts*/; // Unit mV
-	uint32_t watts, inc; // Unit mW
+	uint32_t watts, newWatts; // Unit mW
 	uint8_t btnState;/*, battPerc, boardTemp*/;
 	Atomizer_Info_t atomInfo;
     
@@ -142,7 +143,7 @@ int main(){
     Timer_DelayMs(500);
     
     
-    Timer_CreateTimeout(10,1, timerCallback, 0); //Fire
+    Timer_CreateTimeout(10, 1, timerCallback, 0);
     while(1){
         btnState = Button_GetState();
         Atomizer_ReadInfo(&atomInfo);
@@ -168,34 +169,38 @@ int main(){
 			// Take power off
 			Atomizer_Control(0);
 		}
-        
+        newWatts = watts;
         for (int buttonID=1; buttonID <= 2 && buttonID >=1; buttonID++){
-            int mod = 1; // Modifier, inc should increase value with RIGHT, decrease with LEFT.
+            uint32_t mod = 1; // Modifier, should increase value with RIGHT, decrease with LEFT.
             if (buttonID == LEFT){
               mod = -1;
             }
-        
+            
             if (buttonPressed[buttonID]) {
-                if (timerCounter[buttonID] <= 110) {
-                    inc = round(0.479332 * exp(timerCounter[buttonID]*0.0303612)) * 100;
-                } else {
-                    inc = 1800;
+                if(timerCounter[buttonID] == 0 ) {
+                    newWatts += mod * 100;
+                    continue;
                 }
-                newVolts = wattsToVolts(watts + mod*inc, atomInfo.resistance);
-                if ((mod == 1) && (watts + inc >= 75000)) {
-                    watts = 75000;
-                    newVolts = wattsToVolts(watts, atomInfo.resistance);
-                } else if ((mod == -1) && watts - inc <= 0) {
-                    watts = 0;
-                    newVolts = wattsToVolts(watts, atomInfo.resistance);  
-                } else if (newVolts <= ATOMIZER_MAX_VOLTS) {
-                    watts += mod*inc;
+                if (timerCounter[buttonID] > 80 && timerCounter[buttonID] < 140) {
+                    newWatts += mod * 200;
+                    continue;
                 }
-                volts = newVolts;
-                Atomizer_SetOutputVoltage(volts);
+                if (timerCounter[buttonID] > 140) {
+                    newWatts += mod * 600;
+                    continue;
+                }                
+            }
+            if (!buttonPressed[buttonID]) {
+                
             }
         }
-        
+        if (!(newWatts > 75000) && !(newWatts < 100)) {
+            watts = newWatts;
+        } else if (newWatts > 75000){
+            watts = 75000;
+        } else {
+            watts = 100;
+        }
         Atomizer_ReadInfo(&atomInfo);
 		
         volts = correctVoltage(volts, watts, atomInfo.resistance);
@@ -203,9 +208,10 @@ int main(){
         
         displayVolts = Atomizer_IsOn() ? atomInfo.voltage : volts;
         
-        siprintf(buf, "P:%3lu.%luW\nV:%3d.%02d\n",
+        siprintf(buf, "P:%3lu.%luW\nV:%3d.%02d\n%d",
         watts / 1000, watts % 1000 / 100,
-		displayVolts / 1000, displayVolts % 1000 / 10);
+		displayVolts / 1000, displayVolts % 1000 / 10,
+        newWatts);
 		Display_Clear();
 		Display_PutText(0, 0, buf, FONT_DEJAVU_8PT);
 		Display_Update();
