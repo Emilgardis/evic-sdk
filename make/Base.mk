@@ -87,7 +87,7 @@ LDSCRIPT := $(EVICSDK)/linker/linker.ld
 
 LIBDIRS := -L$(ARMGCC)/arm-none-eabi/lib \
 	-L$(ARMGCC)/lib/arm-none-eabi/newlib \
-	-L$(ARMGCC)/lib/gcc/arm-none-eabi/$(shell arm-none-eabi-gcc -v 2>&1 | grep "^gcc version" | awk "{print $$3}") \
+	-L$(ARMGCC)/lib/gcc/arm-none-eabi/$(shell arm-none-eabi-gcc -v 2>&1 | grep "^gcc version" | echo '5.3.0') \
 	-L$(EVICSDK)/lib
 
 CFLAGS += -Wall -mcpu=$(CPU) -mthumb -Os -fdata-sections -ffunction-sections
@@ -101,6 +101,12 @@ LDFLAGS += $(LIBDIRS)
 LDFLAGS += -nostdlib -nostartfiles -T$(LDSCRIPT) --gc-sections
 
 all: env_check $(TARGET).bin
+
+upload: $(TARGET)_unencrypted.bin
+	$(shell evic-usb upload -u $(BINDIR)/$(TARGET)_unencrypted.bin)
+
+upload_enc: $(TARGET).bin
+	$(shell evic-usb upload -e $(BINDIR)/$(TARGET).bin)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -131,4 +137,4 @@ ifeq ($(ARMGCC),)
 	$(error You must set the ARMGCC environment variable)
 endif
 
-.PHONY: all clean env_check
+.PHONY: all upload clean env_check
