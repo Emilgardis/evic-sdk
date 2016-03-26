@@ -87,7 +87,6 @@ LDSCRIPT := $(EVICSDK)/linker/linker.ld
 
 LIBDIRS := -L$(ARMGCC)/arm-none-eabi/lib \
 	-L$(ARMGCC)/lib/arm-none-eabi/newlib \
-
 	-L$(ARMGCC)/lib/gcc/arm-none-eabi/$(shell arm-none-eabi-gcc -dumpversion) \
 	-L$(EVICSDK)/lib
 
