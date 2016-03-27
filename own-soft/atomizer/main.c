@@ -104,16 +104,10 @@ int main(){
         if(!Atomizer_IsOn() && (btnState == BUTTON_MASK_FIRE) &&
             (atomInfo.resistance != 0) && (Atomizer_GetError() == OK)){
                 Atomizer_Control(1);
-        } else if (Atomizer_IsOn()){
+        } else if (Atomizer_IsOn() && !(btnState & BUTTON_MASK_FIRE)){
                 Atomizer_Control(0);
         }
-        
-        if (newWatts > 75000){
-            newWatts = 75000;
-        } else if (newWatts < 1000){
-            newWatts = 1000;
-        }
-        watts = newWatts;
+       
 
         for(int i=1; i<=2; i++){
             uint32_t mod = 1; 
@@ -130,6 +124,14 @@ int main(){
                 }
             }
         }
+
+        if (newWatts > 75000){
+            newWatts = 75000;
+        } else if (newWatts < 1000){
+            newWatts = 1000;
+        }
+        watts = newWatts;
+
 
         
         Atomizer_ReadInfo(&atomInfo);
