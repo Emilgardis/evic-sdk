@@ -14,69 +14,14 @@
 #define RIGHT 1
 #define LEFT 2
 
-volatile uint32_t timerCounter[3] = {0}; //Space for timers of buttons.
-volatile uint8_t buttonPressed[3] = {0}; //Determines if button was just pressed
-volatile uint8_t timerSpec[3] = {0}; // How many times button has been "tapped"
 volatile uint8_t shouldFire = 0;
-
-void timerCallback() {
-	// We use the optional parameter as an index
-	// counterIndex is the index in timerCounter
-    timerCounter[FIRE]++;
-    timerCounter[RIGHT]++;
-    timerCounter[LEFT]++;
-    return;
+volatile uint32_t buttonSpec[3][3] = {{0},{0},{0}}; // [timesPressed, justPressed, ?uncertain?]
+volatile uint32_t timer = 0; // TODO: Handle overflow.
+volatile uint32_t newWatts = 0; //Is this safe?
+void timerCallback(){
+    timer++;
 }
 
-void updateCounter(uint8_t btn) {
-    // Handles timer and other logic functions
-    // i.e use buttonPressed[buttonID] instead of btnState & BUTTON_MASK_buttonID
-    //
-    // Each button handler checks and does atleast this accordingly:
-    // - If the button was not pressed in previous iter and is now pressed:
-    // -- reset timerCounter[buttonID] and set buttonPressed[buttonID] to True.
-    // -- if button was unpressed for 60 10ms (600 ms), reset timerSpec[buttonID] 
-    // - If the button is realesed and was pressed in previous iter:
-    // -- If button was just pressed and was pressed under 60 10ms (600 ms), increase timerSpec[buttonID]
-    // -- reset timerCounter[buttonID] and set buttonPressed[buttonID] to False.
-    
-    // Fire button timer and counter logic
-    for (int buttonID=0; buttonID <=2; buttonID++) {
-        int8_t mask = 0xFF; //Should always be set.
-        switch (buttonID){
-            case 0:
-                mask = BUTTON_MASK_FIRE;
-                break;
-            case 1:
-                mask = BUTTON_MASK_RIGHT;
-                break;
-            case 2:
-                mask = BUTTON_MASK_LEFT;
-                break;
-        }
-        if (btn & mask) {
-            if (buttonPressed[buttonID] == 0) {
-                timerCounter[buttonID] = 0;
-            }
-            //This if may be damaging to some functions
-            if (timerCounter[buttonID] > 60) {
-                timerSpec[buttonID] = 0;
-            }
-        buttonPressed[buttonID] = 1;
-        }
-        else if (!(btn & mask)) {
-            if (timerCounter[buttonID] < 60 && buttonPressed[buttonID]) {
-                timerSpec[buttonID]++;
-                timerCounter[buttonID] = 0;
-            }
-            else if (buttonPressed[buttonID] || timerCounter[buttonID] > 60) {
-                timerSpec[buttonID] = 0;
-            }
-        timerCounter[buttonID] = 0;
-        buttonPressed[buttonID] = 0;
-        }
-    }
-}
 
 uint16_t wattsToVolts(uint32_t watts, uint16_t res) {
 	// Units: mV, mW, mOhm
@@ -106,28 +51,36 @@ uint16_t correctVoltage(uint16_t currentVolt, uint32_t currentWatt, uint16_t res
     return newVolts;
 }
 
-enum Mode  {
-    defaultmode,
-    setupmode,
-} volatile mode; 
+void buttonRightCallback(uint8_t state){ // Only gets called when something happens.
+    if (state & BUTTON_MASK_RIGHT){
+        buttonSpec[RIGHT][0]++;
+        buttonSpec[RIGHT][1] = 1;
+        buttonSpec[RIGHT][2] = timer;
+        newWatts += 100;
+    } else {
+        buttonSpec[RIGHT][1] = 0;
+        buttonSpec[RIGHT][2] = timer;
+    }
+}
 
+
+void buttonLeftCallback(uint8_t state){ // Only gets called when something happens.
+    if (state & BUTTON_MASK_LEFT){
+        buttonSpec[LEFT][0]++;
+        buttonSpec[LEFT][1] = 1;
+        buttonSpec[LEFT][2] = timer;
+        newWatts -= 100;
+    } else {
+        buttonSpec[LEFT][1] = 0;
+        buttonSpec[LEFT][2] = timer;
+    }
+}
 
 
 int main(){
-    // TODO:    Change FIRE,RIGHT,LEFT to an enum
-    //          Add Stealth mode.
-    //          Add TCR (Formulas?), with Mode::tcrsetupmode, like in stock.
-    //          Implement the same kind of thing that enables stock firm to not have to plug in USB with right button.
-    //          Add bypass mode. (?)
-    //          Implement a better font.
-    //          Fixed fields for values and strings.
-    //          Add a small snake game. (?) What would the memory impact be? Trigger? left left right right fire 2x.
-    //          Make a implemented button "class". Is this even necessary. (?)
-    //          See how puff and time is implemented and use these mem locations for something cool.
-    //          Add volt mode. (?)
     char buf[100];
-    uint16_t volts, displayVolts, newVolts/*, battVolts*/; // Unit mV
-	uint32_t watts, newWatts; // Unit mW
+	uint16_t volts, displayVolts, newVolts/*, battVolts*/; // Unit mV
+	uint32_t watts; // Unit mW
 	uint8_t btnState;/*, battPerc, boardTemp*/;
 	Atomizer_Info_t atomInfo;
     
@@ -137,76 +90,53 @@ int main(){
     volts = wattsToVolts(watts, atomInfo.resistance);
     Atomizer_SetOutputVoltage(volts);
     
-    // Display On screen for 0.5 s.
-    Display_PutPixels(0, 32, Bitmap_evicSdk, Bitmap_evicSdk_width, Bitmap_evicSdk_height);
-    Display_Update();
-    Timer_DelayMs(500);
-    
-    
     Timer_CreateTimeout(10, 1, timerCallback, 0);
+    Button_CreateCallback(buttonRightCallback, BUTTON_MASK_RIGHT);
+    Button_CreateCallback(buttonLeftCallback, BUTTON_MASK_LEFT);
+
+    // Main loop!
+    newWatts = watts;
     while(1){
-        btnState = Button_GetState();
         Atomizer_ReadInfo(&atomInfo);
+        btnState = Button_GetState(); // Unsure if needed.
         
-        // Button logic
-        updateCounter(btnState);
         
-        // If has tapped and time elapsed is less than 60 10ms, disable firing
-        if (timerSpec[FIRE] > 1 && timerCounter[FIRE] < 60) { 
-            shouldFire = 0;
-        } else {
-            shouldFire = 1;   
+        if (newWatts > 75000){
+            newWatts = 75000;
+        } else if (newWatts < 1000){
+            newWatts = 1000;
         }
-        
-        //If should fire
-        if (!Atomizer_IsOn() && (buttonPressed[FIRE]) &&
-            (atomInfo.resistance != 0) && shouldFire &&
-            (Atomizer_GetError() == OK)) {
-                // Take power on
+        watts = newWatts;
+
+        for(int i=1; i<=2; i++){
+            uint32_t mod = 1; 
+            if (i == LEFT)
+                mod = -1;
+
+            if (buttonSpec[i][1] == 1){
+                uint32_t elapsed = timer - buttonSpec[i][2];
+
+                if (elapsed > 60 && elapsed < 180) {
+                    newWatts += mod * 25;
+                } else if (elapsed > 180){
+                    newWatts += mod * 350; 
+                }
+            }
+        }
+
+        if(!Atomizer_IsOn() && (btnState == BUTTON_MASK_FIRE) &&
+            (atomInfo.resistance != 0) && (Atomizer_GetError() == OK)){
                 Atomizer_Control(1);
-        } //If not firing
-        else if((Atomizer_IsOn() && !(buttonPressed[FIRE])) || !shouldFire) {
-			// Take power off
-			Atomizer_Control(0);
-		}
-        newWatts = watts;
-        for (int buttonID=1; buttonID <= 2 && buttonID >=1; buttonID++){
-            uint32_t mod = 1; // Modifier, should increase value with RIGHT, decrease with LEFT.
-            if (buttonID == LEFT){
-              mod = -1;
-            }
-            
-            if (buttonPressed[buttonID]) {
-                if(timerCounter[buttonID] == 0 ) {
-                    newWatts += mod * 100;
-                    continue;
-                }
-                if (timerCounter[buttonID] > 80 && timerCounter[buttonID] < 140) {
-                    newWatts += mod * 200;
-                    continue;
-                }
-                if (timerCounter[buttonID] > 140) {
-                    newWatts += mod * 600;
-                    continue;
-                }                
-            }
-            if (!buttonPressed[buttonID]) {
-                
-            }
+        } else if (Atomizer_IsOn()){
+                Atomizer_Control(0);
         }
-        if (!(newWatts > 75000) && !(newWatts < 100)) {
-            watts = newWatts;
-        } else if (newWatts > 75000){
-            watts = 75000;
-        } else {
-            watts = 100;
-        }
+        
         Atomizer_ReadInfo(&atomInfo);
-		
+        
         volts = correctVoltage(volts, watts, atomInfo.resistance);
         Atomizer_SetOutputVoltage(volts);
-        
-        displayVolts = Atomizer_IsOn() ? atomInfo.voltage : volts;
+
+		displayVolts = Atomizer_IsOn() ? atomInfo.voltage : volts;
         
         siprintf(buf, "P:%3lu.%luW\nV:%3d.%02d\n%d",
         watts / 1000, watts % 1000 / 100,
@@ -216,5 +146,4 @@ int main(){
 		Display_PutText(0, 0, buf, FONT_DEJAVU_8PT);
 		Display_Update();
     }
-    
 }
