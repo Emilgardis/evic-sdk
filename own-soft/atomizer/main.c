@@ -14,9 +14,8 @@
 #define RIGHT 1
 #define LEFT 2
 
-volatile uint8_t shouldFire = 0;
 volatile uint32_t buttonSpec[3][3] = {{0},{0},{0}}; // [timesPressed, justPressed, ?uncertain?]
-volatile uint32_t timer = 0; // TODO: Handle overflow.
+volatile uint32_t timer = 0; // TODO: Handle overflow. Will Currently last 4.97 days.
 volatile uint32_t newWatts = 0; //Is this safe?
 void timerCallback(){
     timer++;
@@ -91,6 +90,7 @@ void buttonLeftCallback(uint8_t state){ // Only gets called when something happe
 
 int main(){
     char buf[100];
+    uint8_t shouldFire;
 	uint16_t volts, displayVolts, newVolts/*, battVolts*/; // Unit mV
 	uint32_t watts; // Unit mW
 	uint8_t btnState;/*, battPerc, boardTemp*/;
@@ -158,10 +158,10 @@ int main(){
 
 		displayVolts = Atomizer_IsOn() ? atomInfo.voltage : volts;
         
-        siprintf(buf, "P:%3lu.%luW\nV:%3d.%02d\n%d",
+        siprintf(buf, "P:%3lu.%luW\nV:%3d.%02d\n%d\n%u",
         watts / 1000, watts % 1000 / 100,
 		displayVolts / 1000, displayVolts % 1000 / 10,
-        newWatts);
+        newWatts, Battery_GetVoltage());
 		Display_Clear();
 		Display_PutText(0, 0, buf, FONT_DEJAVU_8PT);
 		Display_Update();
