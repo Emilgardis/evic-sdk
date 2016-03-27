@@ -51,6 +51,18 @@ uint16_t correctVoltage(uint16_t currentVolt, uint32_t currentWatt, uint16_t res
     return newVolts;
 }
 
+// TODO: Join each callback into one. (?) Is this needed?
+void buttonFireCallback(uint8_t state){ // Only gets called when something happens.
+    if (state & BUTTON_MASK_FIRE){
+        buttonSpec[FIRE][0]++;
+        buttonSpec[FIRE][1] = 1;
+        buttonSpec[FIRE][2] = timer;
+    } else {
+        buttonSpec[FIRE][1] = 0;
+        buttonSpec[FIRE][2] = timer;
+    }
+}
+
 void buttonRightCallback(uint8_t state){ // Only gets called when something happens.
     if (state & BUTTON_MASK_RIGHT){
         buttonSpec[RIGHT][0]++;
@@ -91,18 +103,23 @@ int main(){
     Atomizer_SetOutputVoltage(volts);
     
     Timer_CreateTimeout(10, 1, timerCallback, 0);
+
+    Button_CreateCallback(buttonFireCallback, BUTTON_MASK_FIRE);
     Button_CreateCallback(buttonRightCallback, BUTTON_MASK_RIGHT);
     Button_CreateCallback(buttonLeftCallback, BUTTON_MASK_LEFT);
-
     // Main loop!
     newWatts = watts;
     while(1){
         Atomizer_ReadInfo(&atomInfo);
         btnState = Button_GetState(); // Unsure if needed.
-       
+        
+        if ((timer - buttonSpec[FIRE][2] > 40))
+            shouldFire = 1;
+        else
+            shouldFire = 0;
 
-        if(!Atomizer_IsOn() && (btnState == BUTTON_MASK_FIRE) &&
-            (atomInfo.resistance != 0) && (Atomizer_GetError() == OK)){
+        if(!Atomizer_IsOn() && (btnState == BUTTON_MASK_FIRE) && // Only fire if fire is pressed alone.
+            (atomInfo.resistance != 0) && (Atomizer_GetError() == OK) && shouldFire){
                 Atomizer_Control(1);
         } else if (Atomizer_IsOn() && !(btnState & BUTTON_MASK_FIRE)){
                 Atomizer_Control(0);
