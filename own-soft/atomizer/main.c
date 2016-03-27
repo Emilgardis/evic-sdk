@@ -158,10 +158,11 @@ int main(){
 
 		displayVolts = Atomizer_IsOn() ? atomInfo.voltage : volts;
         
-        siprintf(buf, "P:%3lu.%luW\nV:%3d.%02d\n%d\n%u",
+        siprintf(buf, "P:%3lu.%luW\nV:%3d.%02d\n%1d.%02d Ohm\nBV:%uV\nI:%2d.%02dA",
         watts / 1000, watts % 1000 / 100,
 		displayVolts / 1000, displayVolts % 1000 / 10,
-        newWatts, Battery_GetVoltage());
+        atomInfo.resistance / 1000, atomInfo.resistance % 1000 / 10, Battery_GetVoltage(),
+        atomInfo.current / 1000, atomInfo.current % 1000 / 10);
 		Display_Clear();
 		Display_PutText(0, 0, buf, FONT_DEJAVU_8PT);
 		Display_Update();
