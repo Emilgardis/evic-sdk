@@ -99,7 +99,14 @@ int main(){
     while(1){
         Atomizer_ReadInfo(&atomInfo);
         btnState = Button_GetState(); // Unsure if needed.
-        
+       
+
+        if(!Atomizer_IsOn() && (btnState == BUTTON_MASK_FIRE) &&
+            (atomInfo.resistance != 0) && (Atomizer_GetError() == OK)){
+                Atomizer_Control(1);
+        } else if (Atomizer_IsOn()){
+                Atomizer_Control(0);
+        }
         
         if (newWatts > 75000){
             newWatts = 75000;
@@ -124,12 +131,6 @@ int main(){
             }
         }
 
-        if(!Atomizer_IsOn() && (btnState == BUTTON_MASK_FIRE) &&
-            (atomInfo.resistance != 0) && (Atomizer_GetError() == OK)){
-                Atomizer_Control(1);
-        } else if (Atomizer_IsOn()){
-                Atomizer_Control(0);
-        }
         
         Atomizer_ReadInfo(&atomInfo);
         
