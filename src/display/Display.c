@@ -218,25 +218,33 @@ void Display_PutPixels(int x, int y, const uint8_t *bitmap, int w, int h, bool i
 		return;
 	}
 	
-	uint8_t * bitmap_cpy;
-	bitmap_cpy = (uint8_t *) malloc(h*w);
-	memcpy(bitmap_cpy, bitmap, h*w);
 	
 
 	// Size (in bytes) of a column in the bitmap
 	colSize = (h + 7) / 8;
 	// Row containing the first point of the bitmap
 	startRow = y / 8;
-	if (invert){
-		for (int i; i<h*w; i++){
-			bitmap_cpy[i] = bitmap_cpy[i] ^ 0xFF;
+	if (!invert){
+		for(curX = 0; curX < w; curX++) {
+			// Copy column
+			Display_BitCopy(&Display_framebuf[(x + curX) * (DISPLAY_HEIGHT / 8) + startRow],
+				&bitmap[curX * colSize], y % 8, h);
 		}
+	} else {
+		uint8_t * bitmap_inv;
+		bitmap_inv = (uint8_t *) malloc(colSize*w);
+		memcpy(bitmap_inv, bitmap, colSize*w);
+		for (int i; i<h*w; i++){
+			bitmap_inv[i] = bitmap_inv[i] ^ 0xFF;
+		}
+		for(curX = 0; curX < w; curX++) {
+			// Copy column
+			Display_BitCopy(&Display_framebuf[(x + curX) * (DISPLAY_HEIGHT / 8) + startRow],
+				&bitmap_inv[curX * colSize], y % 8, h);
+		}
+		free(bitmap_inv);
 	}
-	for(curX = 0; curX < w; curX++) {
-		// Copy column
-		Display_BitCopy(&Display_framebuf[(x + curX) * (DISPLAY_HEIGHT / 8) + startRow],
-			&bitmap_cpy[curX * colSize], y % 8, h);
-	}
+
 }
 
 void Display_PutText(int x, int y, const char *txt, const Font_Info_t *font) {
