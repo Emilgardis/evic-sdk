@@ -26,7 +26,7 @@
 
 int main() {
 	// Blit bitmap
-	Display_PutPixels(0, 32, Bitmap_evicSdk, Bitmap_evicSdk_width, Bitmap_evicSdk_height);
+	Display_PutPixels(0, 32, Bitmap_evicSdk, Bitmap_evicSdk_width, Bitmap_evicSdk_height, 0);
 
 	// Update display
 	Display_Update();
