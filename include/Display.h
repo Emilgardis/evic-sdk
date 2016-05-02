@@ -146,8 +146,9 @@ void Display_Clear();
  * @param bitmap Bitmap buffer.
  * @param w      Width of the bitmap.
  * @param h      Height of the bitmap.
+ * @param invert Whether or not to invert the bitmap.
  */
-void Display_PutPixels(int x, int y, const uint8_t *bitmap, int w, int h);
+void Display_PutPixels(int x, int y, const uint8_t *bitmap, int w, int h, bool invert);
 
 /**
  * Blits text into the framebuffer.

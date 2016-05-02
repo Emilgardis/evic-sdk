@@ -206,8 +206,9 @@ static void Display_BitCopy(uint8_t *dst, const uint8_t *src, uint32_t dstOffset
 	dst[0] |= (src[0] & bitMask1) << dstOffset;
 }
 
-void Display_PutPixels(int x, int y, const uint8_t *bitmap, int w, int h) {
+void Display_PutPixels(int x, int y, const uint8_t *bitmap, int w, int h, bool invert) {
 	int colSize, startRow, curX;
+	
 
 	// Sanity check
 	if(x < 0 || y < 0 ||
@@ -216,23 +217,33 @@ void Display_PutPixels(int x, int y, const uint8_t *bitmap, int w, int h) {
 		y + h > DISPLAY_HEIGHT) {
 		return;
 	}
+	
+	uint8_t * bitmap_cpy;
+	bitmap_cpy = (uint8_t *) malloc(h*w);
+	memcpy(bitmap_cpy, bitmap, h*w);
+	
 
 	// Size (in bytes) of a column in the bitmap
 	colSize = (h + 7) / 8;
 	// Row containing the first point of the bitmap
 	startRow = y / 8;
-
+	if (invert){
+		for (int i; i<h*w; i++){
+			bitmap_cpy[i] = bitmap_cpy[i] ^ 0xFF;
+		}
+	}
 	for(curX = 0; curX < w; curX++) {
 		// Copy column
 		Display_BitCopy(&Display_framebuf[(x + curX) * (DISPLAY_HEIGHT / 8) + startRow],
-			&bitmap[curX * colSize], y % 8, h);
+			&bitmap_cpy[curX * colSize], y % 8, h);
 	}
 }
 
 void Display_PutText(int x, int y, const char *txt, const Font_Info_t *font) {
 	int i, curX, charIdx;
 	const uint8_t *charPtr;
-
+	bool invert = false;
+	
 	curX = x;
 
 	for(i = 0; i < strlen(txt); i++) {
@@ -240,6 +251,10 @@ void Display_PutText(int x, int y, const char *txt, const Font_Info_t *font) {
 		if(txt[i] == '\n') {
 			curX = x;
 			y += font->height;
+			continue;
+		}
+		if (txt[i] == '\b') {
+			invert = !invert;
 			continue;
 		}
 
@@ -259,7 +274,7 @@ void Display_PutText(int x, int y, const char *txt, const Font_Info_t *font) {
 		charPtr = font->data + font->charInfo[charIdx].offset;
 
 		// Blit character
-		Display_PutPixels(curX, y, charPtr, font->charInfo[charIdx].width, font->height);
+		Display_PutPixels(curX, y, charPtr, font->charInfo[charIdx].width, font->height, invert);
 		curX += font->charInfo[charIdx].width;
 	}
 }
