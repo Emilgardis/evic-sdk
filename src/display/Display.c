@@ -33,6 +33,7 @@
  */
 
 #include <string.h>
+#include <stdlib.h>
 #include <M451Series.h>
 #include <Display.h>
 #include <Display_SSD.h>
@@ -234,7 +235,7 @@ void Display_PutPixels(int x, int y, const uint8_t *bitmap, int w, int h, bool i
 		uint8_t * bitmap_inv;
 		bitmap_inv = (uint8_t *) malloc(colSize*w);
 		memcpy(bitmap_inv, bitmap, colSize*w);
-		for (int i; i<h*w; i++){
+		for (int i=0; i<colSize*w; i++){
 			bitmap_inv[i] = bitmap_inv[i] ^ 0xFF;
 		}
 		for(curX = 0; curX < w; curX++) {
